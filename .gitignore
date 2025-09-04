@@ -1,0 +1,37 @@
+# Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.env
+venv/
+.venv/
+
+# Database
+*.sqlite3
+*.db
+
+# Alembic
+migrations/versions/*.pyc
+migrations/versions/__pycache__/
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+*.bak
+*.orig
+*.tmp
+
+# Logs
+*.log
+logs/
+
+# OS Files
+.DS_Store
+Thumbs.db
+volumes
+
+digest.txt

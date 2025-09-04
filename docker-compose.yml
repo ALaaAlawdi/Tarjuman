@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  web:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    image: najd-backend
+    container_name: najd-backend-container
+    ports:
+      - "8000:8000" 
+    volumes:
+      - .:/app
+      - ./volumes/static:/app/static
+      - ./volumes/media:/app/media
+      - ./volumes/postgres_data:/var/lib/postgresql/data
+    depends_on:
+      - db
+
+  db:
+    image: postgres:14
+    container_name: postgres_container
+    volumes:
+      - ./volumes/postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${POSTGRESQL_DB_USER}
+      POSTGRES_PASSWORD: ${POSTGRESQL_DB_PASSWORD}
+      POSTGRES_DB: ${POSTGRESQL_DB_NAME}
+    ports:
+      - "5432:5432"
