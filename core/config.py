@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     # App
     AGENT_VERSION_ROUTER_API: str = Field("/v1", env="AGENT_VERSION_ROUTER_API")
     APP_DEBUG: bool = Field(False, env="APP_DEBUG")  # <-- add this
+    
+    # Security settings
+    SECRET_KEY: str = Field(..., env="SECRET_KEY")
+    ALGORITHM: str = Field("HS256", env="ALGORITHM")
+    ACCESS_TOKEN_EXPIRY_DAYS: int = Field(120, env="ACCESS_TOKEN_EXPIRY_DAYS")
+    
 
     # Paths
     UPLOAD_DIR: Path = BASE_DIR / "uploads"

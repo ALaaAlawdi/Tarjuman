@@ -16,10 +16,14 @@ async def upload_file(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # Save to disk
-    file_data = await file_service.save_file(file)
+    # Save to disk → returns dict
+    saved = await file_service.save_file(file)
+
+    # Convert dict → Pydantic model so we can use dot-attrs
+    meta = UploadResponse.model_validate(saved)
+
     # Save metadata to DB
-    db_file = await create_file(db, file_data, current_user.id)
+    db_file = await create_file(db, meta, current_user.id)
     return db_file
 
 @router.get("/", response_model=list[FileOut])
