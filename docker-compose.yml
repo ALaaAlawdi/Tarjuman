@@ -1,30 +1,23 @@
-version: '3.8'
+version: "3.9"
 
 services:
-  web:
-    build: 
-      context: .
-      dockerfile: Dockerfile
-    image: najd-backend
-    container_name: najd-backend-container
-    ports:
-      - "8000:8000" 
-    volumes:
-      - .:/app
-      - ./volumes/static:/app/static
-      - ./volumes/media:/app/media
-      - ./volumes/postgres_data:/var/lib/postgresql/data
-    depends_on:
-      - db
-
   db:
-    image: postgres:14
-    container_name: postgres_container
-    volumes:
-      - ./volumes/postgres_data:/var/lib/postgresql/data
+    image: postgres:16
+    container_name: tarjuman-postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRESQL_DB_USER}
-      POSTGRES_PASSWORD: ${POSTGRESQL_DB_PASSWORD}
-      POSTGRES_DB: ${POSTGRESQL_DB_NAME}
+      POSTGRES_USER: tarjuman
+      POSTGRES_PASSWORD: supersecret
+      POSTGRES_DB: tarjuman_db
     ports:
       - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tarjuman -d tarjuman_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:

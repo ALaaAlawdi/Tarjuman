@@ -7,7 +7,7 @@ from sqlalchemy.future import select
 from datetime import datetime, timedelta, timezone
 from .config import settings
 from .database import get_db
-from ..models.user import User, UserGoogleAccount
+from ..models.user import User
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(
@@ -36,16 +36,6 @@ async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
     result = await db.execute(select(User).filter(User.email == email))
     return result.scalar_one_or_none()
 
-
-async def get_google_token_by_user(
-    db: AsyncSession, user_id: str
-) -> UserGoogleAccount | None:
-    result = await db.execute(
-        select(UserGoogleAccount).filter(
-            UserGoogleAccount.user_id == user_id,
-        )
-    )
-    return result.scalar_one_or_none()
 
 
 async def authenticate_user(db: AsyncSession, email: str, password: str) -> User | None:
