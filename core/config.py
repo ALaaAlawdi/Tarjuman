@@ -2,6 +2,7 @@ from pathlib import Path
 import os
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Optional
 
 BASE_DIR = Path(__file__).resolve().parent.parent  # Tarjuman/
 
@@ -12,6 +13,8 @@ class Settings(BaseSettings):
     POSTGRESQL_DB_USER: str = Field(..., env="POSTGRESQL_DB_USER")
     POSTGRESQL_DB_PASSWORD: str = Field(..., env="POSTGRESQL_DB_PASSWORD")
     POSTGRESQL_DB_NAME: str = Field(..., env="POSTGRESQL_DB_NAME")
+    # api 
+    OPENAI_API_KEY: Optional[str] = Field(None, env="OPENAI_API_KEY")
 
     # App
     AGENT_VERSION_ROUTER_API: str = Field("/v1", env="AGENT_VERSION_ROUTER_API")
@@ -21,7 +24,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = Field(..., env="SECRET_KEY")
     ALGORITHM: str = Field("HS256", env="ALGORITHM")
     ACCESS_TOKEN_EXPIRY_DAYS: int = Field(120, env="ACCESS_TOKEN_EXPIRY_DAYS")
-    
+
 
     # Paths
     UPLOAD_DIR: Path = BASE_DIR / "uploads"
