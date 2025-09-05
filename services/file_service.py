@@ -3,6 +3,7 @@ from fastapi import UploadFile, HTTPException
 from ..core.config import settings
 from ..core.logger import setup_logger
 
+
 logger = setup_logger(__name__)
 
 class FileService:
@@ -30,6 +31,22 @@ class FileService:
         except Exception as e:
             logger.error(f"File upload failed for {file.filename}: {e}")
             raise HTTPException(status_code=500, detail=f"File upload failed: {str(e)}")
+
+    # add read docx file 
+
+
+
+
+    # add read pdf file 
+
+
+
+    # add convert word to md file 
+
+    
+
+    
+
 
 
 file_service = FileService()
