@@ -1,17 +1,21 @@
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import BackgroundTasks
 from ....schemas.file import UploadResponse, FileOut
 from ....services.file_service import file_service
 from ....crud.file import create_file, get_user_files, get_file_by_id, delete_file
 from ....core.database import get_db
 from ....core.security import get_current_user
 from ....models.user import User
+from ....crud.translate import create_translation_status
+from ....background_tasks.translation_Pipeline import run_translation_pipeline
 
 router = APIRouter()
 
 
 @router.post("/upload", response_model=FileOut)
 async def upload_file(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -24,6 +28,18 @@ async def upload_file(
 
     # Save metadata to DB
     db_file = await create_file(db, meta, current_user.id)
+
+    # Add pending status
+    await create_translation_status(db, db_file.id)
+
+    # Trigger background translation
+    background_tasks.add_task(
+        run_translation_pipeline,
+        db_file.id,
+        db_file.filename,
+        db,
+    )
+
     return db_file
 
 @router.get("/", response_model=list[FileOut])

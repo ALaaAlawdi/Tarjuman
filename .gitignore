@@ -29,6 +29,11 @@ migrations/versions/__pycache__/
 *.log
 logs/
 
+#mdeai file
+# Ignore uploaded files
+uploads/
+media/
+
 # OS Files
 .DS_Store
 Thumbs.db
