@@ -28,6 +28,7 @@ class Settings(BaseSettings):
 
     # Paths
     UPLOAD_DIR: Path = BASE_DIR / "uploads"
+    MEDIA_DIR: Path = BASE_DIR / "media" / "images"
     LOG_DIR: Path = BASE_DIR / "logs"
 
     # Pydantic v2 settings
@@ -41,3 +42,4 @@ class Settings(BaseSettings):
 settings = Settings()
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 os.makedirs(settings.LOG_DIR, exist_ok=True)
+os.makedirs(settings.MEDIA_DIR, exist_ok=True) 
