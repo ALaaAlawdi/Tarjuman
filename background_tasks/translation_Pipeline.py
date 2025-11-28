@@ -1,87 +1,121 @@
 import os
 from pathlib import Path
+import os
+from pathlib import Path
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.logger import setup_logger
 from ..services.file_service import file_service
 from ..crud.translate import update_translation_status
-from ..agentic.llms.openai_client import get_openai_client
+from ..agentic.llms.deepseek_client import get_deepseek_chat
 from ..agentic.prompts.translate import get_translate_prompt
-
-
+from ..services.file_service import file_service
+from ..models.translation import TranslationStatusEnum
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from typing import List
+import asyncio
 
 
 logger = setup_logger(__name__)
 
+
 async def run_translation_pipeline(
     file_id: int,
     filename: str,
+    user_id: int,
     db: AsyncSession,
 ):
+    """Run translation pipeline by splitting the markdown into chunks,
+    translating each chunk, writing translated markdown and converting back to DOCX.
+    """
     try:
         logger.info(f"[Pipeline] Starting translation for file: {filename}")
+        
+        workspace = file_service.make_file_workspace(user_id, file_id)
+
+        original_path = workspace["original"] / filename
+        converted_docx = workspace["converted"] / "file.docx"
+        markdown_path = workspace["markdown"] / "file.md"
+        translated_md = workspace["markdown"] / "translated.md"
+        final_docx = workspace["output"] / "final.docx"
+
+    
+        # mark processing
+        await update_translation_status(db=db, file_id=file_id, status=TranslationStatusEnum.pending)
 
         # Step 1: Detect file extension
         ext = Path(filename).suffix.lower()
+        
+        # -------------------------
+        # Step 1 — Convert to DOCX
+        # -------------------------
         if ext == ".pdf":
-            docx_path = file_service.convert_pdf_to_docx(filename)
-            if not docx_path:
-                raise ValueError("PDF to DOCX conversion failed")
+            await asyncio.to_thread(file_service.pdf_to_docx, original_path, converted_docx)
         elif ext == ".docx":
-            docx_path = file_service.base_dir / filename
+            converted_docx = original_path
         else:
-            raise ValueError("Unsupported file format")
+            raise ValueError("Unsupported file type")
+        logger.info(f"[Pipeline] Converted to DOCX: {converted_docx}")
 
-        # Step 2: Convert DOCX → Markdown
-        md_path = file_service.convert_docx_to_markdown(docx_path.name, str(file_id))
-        if not md_path:
-            raise ValueError("DOCX to Markdown conversion failed")
+        # -------------------------
+        # Step 2 — DOCX → Markdown
+        # -------------------------
+        await asyncio.to_thread(
+            file_service.docx_to_md,
+            converted_docx,
+            markdown_path,
+            workspace["media"]
+         )
+        
+        content = markdown_path.read_text(encoding="utf-8")
 
-        # Step 3: Read page-by-page from Markdown
-        with open(md_path, "r", encoding="utf-8") as f:
-            content = f.read()
-
-        pages = content.split("\f") if "\f" in content else content.split("\n\n\n")
-        translated_pages = []
-
-        llm = get_openai_client()
-
-        for i, page in enumerate(pages):
-            if not page.strip():
-                continue
-
-            prompt = get_translate_prompt("Arabic", page)
-            response = await llm.ainvoke(prompt)
-
-            translated_pages.append(f'<div dir="rtl">{response.content.strip()}</div>')
-            logger.info(f"[Pipeline] Translated page {i+1}")
-
-        # Step 4: Save translated Markdown
-        translated_md_path = md_path.with_name(f"{md_path.stem}_translated.md")
-        with open(translated_md_path, "w", encoding="utf-8") as f:
-            f.write("\n\n".join(translated_pages))
-
-        # Step 5: Convert translated Markdown → DOCX
-        final_docx_path = file_service.convert_markdown_to_docx(
-            translated_md_path.name, str(file_id)
+        # -------------------------
+        # Step 3 — Chunk & Translate
+        # -------------------------
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=0,
+            separators=["\n\n", "\n", ".", " "]
         )
-        if not final_docx_path:
-            raise ValueError("Markdown to DOCX conversion failed")
 
-        # Step 6: Update status in DB
+        chunks = splitter.split_text(content)
+        llm = get_deepseek_chat()
+        translated = []
+
+        for idx, chunk in enumerate(chunks):
+            logger.info(f"Translating chunk {idx+1}/{len(chunks)}")
+            prompt = get_translate_prompt("Arabic", chunk)
+            resp = await llm.ainvoke(prompt)
+            text = getattr(resp, "content", resp)
+            translated.append(f"<div dir=\"rtl\">{text.strip()}</div>")
+
+            await asyncio.sleep(0.03)
+
+        translated_md.write_text("\n\n".join(translated), encoding="utf-8")
+
+        # -------------------------
+        # Step 4 — Markdown → DOCX
+        # -------------------------
+        await asyncio.to_thread(
+            file_service.md_to_docx,
+            translated_md,
+            final_docx,
+            workspace["media"]
+        )
+
         await update_translation_status(
-            db=db,
-            file_id=file_id,
-            status="translated",
-            translated_path=str(final_docx_path),
-        )
+        db=db,
+        file_id=file_id,
+        status=TranslationStatusEnum.translated,
+        error_message="File translated successfully",
+            )
 
-        logger.info(f"[Pipeline] Translation completed: {final_docx_path}")
-
+        logger.info(f"[Pipeline] DONE → {final_docx}")
+        
     except Exception as e:
-        logger.error(f"[Pipeline] Error in translation: {e}")
+        logger.error(f"[Pipeline] Error during translation: {e}")
         await update_translation_status(
             db=db,
             file_id=file_id,
-            status="error",
-            error_message=str(e),
+            status=TranslationStatusEnum.error,
+            error_message=str(e)
         )

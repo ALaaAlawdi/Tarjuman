@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     POSTGRESQL_DB_NAME: str = Field(..., env="POSTGRESQL_DB_NAME")
     # api 
     OPENAI_API_KEY: Optional[str] = Field(None, env="OPENAI_API_KEY")
+    DEEPSEEK_API_KEY: Optional[str] = Field(None, env="DEEPSEEK_API_KEY")
 
     # App
     AGENT_VERSION_ROUTER_API: str = Field("/v1", env="AGENT_VERSION_ROUTER_API")
@@ -27,8 +28,9 @@ class Settings(BaseSettings):
 
 
     # Paths
-    UPLOAD_DIR: Path = BASE_DIR / "uploads"
-    MEDIA_DIR: Path = BASE_DIR / "media" / "images"
+    BASE_DIR: Path = BASE_DIR
+    UPLOAD_DIR: Path = BASE_DIR / "data"
+    MEDIA_DIR: Path = BASE_DIR / "media"
     LOG_DIR: Path = BASE_DIR / "logs"
 
     # Pydantic v2 settings
@@ -40,6 +42,8 @@ class Settings(BaseSettings):
     )
 
 settings = Settings()
+
+
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 os.makedirs(settings.LOG_DIR, exist_ok=True)
 os.makedirs(settings.MEDIA_DIR, exist_ok=True) 

@@ -9,37 +9,61 @@ from ....core.security import get_current_user
 from ....models.user import User
 from ....crud.translate import create_translation_status
 from ....background_tasks.translation_Pipeline import run_translation_pipeline
+from pathlib import Path
 
 router = APIRouter()
 
 
-@router.post("/upload", response_model=FileOut)
+@router.post("/upload")
 async def upload_file(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-):
-    # Save to disk → returns dict
-    saved = await file_service.save_file(file)
-
-    # Convert dict → Pydantic model so we can use dot-attrs
-    meta = UploadResponse.model_validate(saved)
-
-    # Save metadata to DB
-    db_file = await create_file(db, meta, current_user.id)
-
-    # Add pending status
-    await create_translation_status(db, db_file.id)
-
-    # Trigger background translation
-    background_tasks.add_task(
-        run_translation_pipeline,
-        db_file.id,
-        db_file.filename,
-        db,
+    background_tasks: BackgroundTasks = None,
+    
+):  
+    
+    fake_meta = UploadResponse(
+    status="pending",
+    message="initial record",
+    filename=file.filename,
+    content_type=file.content_type,
+    path="",          # file not saved yet
+    size_bytes=0      # will update after save
     )
 
+
+    db_file = await create_file(db, fake_meta, current_user.id)
+
+    # Save to disk → returns dict
+    saved_path = await file_service.save_file(
+        file=file,
+        user_id=current_user.id,
+        file_id=db_file.id
+    )
+
+    # Update DB with physical path
+    # 4️⃣ Update DB entry
+    db_file.path = str(saved_path)
+    db_file.size_bytes = Path(saved_path).stat().st_size
+    db_file.status = "saved"
+    db_file.message = "File uploaded successfully"
+
+    await db.commit()
+    await db.refresh(db_file)
+    
+    
+    await create_translation_status(db, db_file.id)
+
+    background_tasks.add_task(
+        run_translation_pipeline,
+        file_id=db_file.id,
+        filename=db_file.filename,
+        user_id=current_user.id,
+        db=db
+    )
+
+    
     return db_file
 
 @router.get("/", response_model=list[FileOut])
