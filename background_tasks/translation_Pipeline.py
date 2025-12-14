@@ -86,7 +86,8 @@ async def run_translation_pipeline(
             prompt = get_translate_prompt("Arabic", chunk)
             resp = await llm.ainvoke(prompt)
             text = getattr(resp, "content", resp)
-            translated.append(f"<div dir=\"rtl\">{text.strip()}</div>")
+            translated.append(f"<div style=\"text-align: justify;\" dir=\"rtl\"> {text.strip()}</div>")
+            
 
             await asyncio.sleep(0.03)
 
